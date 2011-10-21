@@ -363,6 +363,9 @@ class PHP_Token_Stream implements ArrayAccess, Countable, SeekableIterator
         $traitEndLine     = FALSE;
         $interface        = FALSE;
         $interfaceEndLine = FALSE;
+        $this->variables  = array();
+        $function         = FALSE;
+        $functionEndLine  = FALSE;
 
         foreach ($this->tokens as $token) {
             switch (get_class($token)) {
@@ -371,11 +374,59 @@ class PHP_Token_Stream implements ArrayAccess, Countable, SeekableIterator
                 }
                 break;
 
+                case 'PHP_Token_VARIABLE': {
+                  $name = $token->__toString();
+                  $tmp = array(
+                    //'docblock'  => $token->getDocblock(),
+                    //'keywords'  => $token->getKeywords(),
+                    'visibility'=> $token->getVisibility(),
+                    //'signature' => $token->getSignature(),
+                    'startLine' => $token->getLine(),
+                    //'endLine'   => $token->getEndLine(),
+                    //'ccn'       => $token->getCCN(),
+                    'file'      => $this->filename
+                  );
+                  
+                  if ($class === FALSE &&
+                      $trait === FALSE &&
+                      $interface === FALSE &&
+                      $function === FALSE) {
+                      $this->variables[$name] = $tmp;
+                  }
+                  
+                  else if ($class !== FALSE &&
+                            $function === FALSE &&
+                            $interface === FALSE &&
+                            $trait === FALSE) {
+                    $this->classes[$class]['properties'][$name] = $tmp;
+                  }
+                  
+                  else if ($trait !== FALSE &&
+                            $function === FALSE &&
+                            $interface === FALSE &&
+                            $class === FALSE) {                          
+                    $this->traits[$trait]['properties'][$name] = $tmp;
+                  }
+
+                  else if ($interface !== FALSE &&
+                            $function === FALSE &&
+                            $trait === FALSE &&
+                            $class === FALSE) {                          
+                    $this->interfaces[$interface]['properties'][$name] = $tmp;
+                  }
+                  
+                  else {
+                    $this->functions[$function]['properties'][$name] = $tmp;
+                  }
+                }
+                break;
+                
                 case 'PHP_Token_INTERFACE': {
                     $interface        = $token->getName();
                     $interfaceEndLine = $token->getEndLine();
 
                     $this->interfaces[$interface] = array(
+                      'properties'=> array(),
                       'methods'   => array(),
                       'parent'    => $token->getParent(),
                       'keywords'  => $token->getKeywords(),
@@ -391,6 +442,7 @@ class PHP_Token_Stream implements ArrayAccess, Countable, SeekableIterator
                 case 'PHP_Token_CLASS':
                 case 'PHP_Token_TRAIT': {
                     $tmp = array(
+                      'properties'=> array(),
                       'methods'   => array(),
                       'parent'    => $token->getParent(),
                       'interfaces'=> $token->getInterfaces(),
@@ -431,22 +483,30 @@ class PHP_Token_Stream implements ArrayAccess, Countable, SeekableIterator
                         $trait === FALSE &&
                         $interface === FALSE) {
                         $this->functions[$name] = $tmp;
+                        $function = $token->getName();
+                        $functionEndLine = $token->getEndLine();
                     }
 
                     else if ($class !== FALSE) {
                         $this->classes[$class]['methods'][$name] = $tmp;
+                        $function = $token->getName();
+                        $functionEndLine = $token->getEndLine();
                     }
 
                     else if ($trait !== FALSE) {
                         $this->traits[$trait]['methods'][$name] = $tmp;
+                        $function = $token->getName();
+                        $functionEndLine = $token->getEndLine();
                     }
 
                     else {
                         $this->interfaces[$interface]['methods'][$name] = $tmp;
+                        $function = $token->getName();
+                        $functionEndLine = $token->getEndLine();
                     }
                 }
                 break;
-
+                
                 case 'PHP_Token_CLOSE_CURLY': {
                     if ($classEndLine !== FALSE &&
                         $classEndLine == $token->getLine()) {
@@ -464,6 +524,12 @@ class PHP_Token_Stream implements ArrayAccess, Countable, SeekableIterator
                         $interfaceEndLine == $token->getLine()) {
                         $interface        = FALSE;
                         $interfaceEndLine = FALSE;
+                    }
+                    
+                    elseif ($functionEndLine !== FALSE &&
+                        $functionEndLine == $token->getLine()) {
+                        $function        = FALSE;
+                        $functionEndLine = FALSE;
                     }
                 }
                 break;

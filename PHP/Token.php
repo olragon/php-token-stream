@@ -328,7 +328,31 @@ class PHP_Token_LNUMBER extends PHP_Token {}
 class PHP_Token_DNUMBER extends PHP_Token {}
 class PHP_Token_STRING extends PHP_Token {}
 class PHP_Token_STRING_VARNAME extends PHP_Token {}
-class PHP_Token_VARIABLE extends PHP_Token {}
+class PHP_Token_VARIABLE extends PHP_Token {
+  
+    public function getVisibility()
+    {
+        $tokens = $this->tokenStream->tokens();
+
+        for ($i = $this->id - 2; $i > $this->id - 7; $i -= 2) {
+            if (isset($tokens[$i]) &&
+               ($tokens[$i] instanceof PHP_Token_PRIVATE ||
+                $tokens[$i] instanceof PHP_Token_PROTECTED ||
+                $tokens[$i] instanceof PHP_Token_PUBLIC)) {
+                return strtolower(
+                  str_replace('PHP_Token_', '', get_class($tokens[$i]))
+                );
+            }
+            if (isset($tokens[$i]) &&
+              !($tokens[$i] instanceof PHP_Token_STATIC ||
+                $tokens[$i] instanceof PHP_Token_FINAL ||
+                $tokens[$i] instanceof PHP_Token_ABSTRACT)) {
+                // no keywords; stop visibility search
+                break;
+            }
+        }
+    }  
+}
 class PHP_Token_NUM_STRING extends PHP_Token {}
 class PHP_Token_INLINE_HTML extends PHP_Token {}
 class PHP_Token_CHARACTER extends PHP_Token {}
